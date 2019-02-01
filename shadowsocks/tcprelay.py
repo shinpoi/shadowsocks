@@ -298,7 +298,7 @@ class TCPRelayHandler(object):
                     self.destroy()
 
     @shell.exception_handle(self_=True, destroy=True, conn_err=True)
-    def _handle_stage_addr(self, data):
+    def _handle_stage_addr(self, data, dport=0):
         if self._is_local:
             if self._is_tunnel:
                 # add ss header to data
@@ -332,11 +332,13 @@ class TCPRelayHandler(object):
                     return
         header_result = parse_header(data)
         if header_result is None:
-            raise Exception('can not parse header')
+            raise Exception('[%d] can not parse header' % dport)
         addrtype, remote_addr, remote_port, header_length = header_result
-        logging.info('connecting %s:%d from %s:%d' %
+        '''logging.info('connecting %s:%d from %s:%d' %
                      (common.to_str(remote_addr), remote_port,
-                      self._client_address[0], self._client_address[1]))
+                      self._client_address[0], self._client_address[1]))'''
+        logging.info('[%d] connecting %d from %s:%d' %
+                     (dport, remote_port, self._client_address[0], self._client_address[1]))
         if self._is_local is False:
             # spec https://shadowsocks.org/en/spec/one-time-auth.html
             self._ota_enable_session = addrtype & ADDRTYPE_AUTH
@@ -580,7 +582,7 @@ class TCPRelayHandler(object):
         elif is_local and self._stage == STAGE_INIT:
             # jump over socks5 init
             if self._is_tunnel:
-                self._handle_stage_addr(data)
+                self._handle_stage_addr(data, self._local_sock.getsockname()[1])
                 return
             else:
                 self._handle_stage_init(data)
@@ -588,7 +590,7 @@ class TCPRelayHandler(object):
             self._handle_stage_connecting(data)
         elif (is_local and self._stage == STAGE_ADDR) or \
                 (not is_local and self._stage == STAGE_INIT):
-            self._handle_stage_addr(data)
+            self._handle_stage_addr(data, self._local_sock.getsockname()[1])
 
     def _on_remote_read(self):
         # handle all remote read events
